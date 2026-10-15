@@ -1,0 +1,7 @@
+class: Task
+table: tasks
+fields:
+  title: String
+  description: String?
+  completed: bool, default=false
+  createdAt: DateTime, default=now

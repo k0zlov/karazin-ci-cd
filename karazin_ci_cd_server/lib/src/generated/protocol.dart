@@ -13,8 +13,8 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
-import 'greetings/greeting.dart' as _izw8z7ou;
-export 'greetings/greeting.dart';
+import 'modules/tasks/task.dart' as _ihoi7vca;
+export 'modules/tasks/task.dart';
 
 class Protocol extends _is.DatabaseSerializationManager {
   Protocol._();
@@ -24,6 +24,50 @@ class Protocol extends _is.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._();
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
+    _isp.TableDefinition(
+      name: 'tasks',
+      dartName: 'Task',
+      schema: 'public',
+      module: 'karazin_ci_cd',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'title',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'description',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'completed',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [],
+      managed: true,
+    ),
     ..._isp.Protocol.targetTableDefinitions,
   ];
 
@@ -54,11 +98,11 @@ class Protocol extends _is.DatabaseSerializationManager {
       }
     }
 
-    if (t == _izw8z7ou.Greeting) {
-      return _izw8z7ou.Greeting.fromJson(data) as T;
+    if (t == _ihoi7vca.Task) {
+      return _ihoi7vca.Task.fromJson(data) as T;
     }
-    if (t == _is.getType<_izw8z7ou.Greeting?>()) {
-      return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
+    if (t == _is.getType<_ihoi7vca.Task?>()) {
+      return (data != null ? _ihoi7vca.Task.fromJson(data) : null) as T;
     }
     try {
       return _isp.Protocol().deserialize<T>(data, t);
@@ -68,7 +112,7 @@ class Protocol extends _is.DatabaseSerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _izw8z7ou.Greeting => 'Greeting',
+      _ihoi7vca.Task => 'Task',
       _ => null,
     };
   }
@@ -86,8 +130,8 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
 
     switch (data) {
-      case _izw8z7ou.Greeting():
-        return 'Greeting';
+      case _ihoi7vca.Task():
+        return 'Task';
     }
     className = _isp.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -102,8 +146,8 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
     }
-    if (dataClassName == 'Greeting') {
-      return deserialize<_izw8z7ou.Greeting>(data['data']);
+    if (dataClassName == 'Task') {
+      return deserialize<_ihoi7vca.Task>(data['data']);
     }
     if (dataClassName.startsWith('serverpod.')) {
       data['className'] = dataClassName.substring(10);
@@ -119,6 +163,10 @@ class Protocol extends _is.DatabaseSerializationManager {
       if (table != null) {
         return table;
       }
+    }
+    switch (t) {
+      case _ihoi7vca.Task:
+        return _ihoi7vca.Task.t;
     }
     return null;
   }

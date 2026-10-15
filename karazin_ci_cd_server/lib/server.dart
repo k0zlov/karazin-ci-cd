@@ -1,42 +1,32 @@
-import 'package:serverpod_cloud_storage/serverpod_cloud_storage.dart';
+import 'package:karazin_ci_cd_server/src/generated/serverpod.dart';
+import 'package:karazin_ci_cd_server/src/web/routes/open_api_route.dart';
+import 'package:karazin_ci_cd_server/src/web/routes/swagger_route.dart';
+import 'package:karazin_ci_cd_server/src/web/routes/task_route.dart';
+import 'package:karazin_ci_cd_server/src/web/routes/tasks_route.dart';
 
-import 'src/cache_busting.dart';
-import 'src/generated/serverpod.dart';
-import 'src/web/routes/root.dart';
-
-/// The starting point of the Serverpod server.
 void run(List<String> args) async {
-  // Initialize Serverpod. The generated Serverpod class is already connected
-  // with your project's generated code.
   final pod = Serverpod(args);
 
-  // Setup a default page at the web root.
-  // These are used by the default page.
-  pod.webServer.addRoute(RootRoute(), '/');
-  pod.webServer.addRoute(RootRoute(), '/index.html');
-
-  // Serve all files in the web/static relative directory under /web.
-  // These are used by the default web page.
   pod.webServer.addRoute(
-    StaticRoute.withCacheBusting(cacheBustingConfig),
-    cacheBustingConfig.mountPrefix,
+    TasksRoute(),
+    '/api/tasks',
   );
 
-  // Configure cloud storage.
-  // This setup works with Serverpod Cloud without extra configuration.
-  // If you want to use a custom provider for cloud storage, replace these
-  // with your preferred provider.
-  pod.addCloudStorage(
-    await ServerpodCloudProvider.private(
-      fallback: () => DatabaseCloudStorage('private'),
-    ),
-  );
-  pod.addCloudStorage(
-    await ServerpodCloudProvider.public(
-      fallback: () => DatabaseCloudStorage('public'),
-    ),
+  pod.webServer.addRoute(
+    TaskRoute(),
+    '/api/tasks/:id',
   );
 
-  // Start the server.
+  pod.webServer.addRoute(
+    OpenApiRoute(),
+    '/openapi.json',
+  );
+
+  pod.webServer.addRoute(
+    SwaggerRoute(),
+    '/docs',
+  );
+
+
   await pod.start();
 }

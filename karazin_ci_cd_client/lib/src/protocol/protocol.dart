@@ -12,8 +12,8 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
-import 'greetings/greeting.dart' as _izw8z7ou;
-export 'greetings/greeting.dart';
+import 'modules/tasks/task.dart' as _ihoi7vca;
+export 'modules/tasks/task.dart';
 export 'client.dart';
 
 class Protocol extends _isc.SerializationManager {
@@ -50,18 +50,18 @@ class Protocol extends _isc.SerializationManager {
       }
     }
 
-    if (t == _izw8z7ou.Greeting) {
-      return _izw8z7ou.Greeting.fromJson(data) as T;
+    if (t == _ihoi7vca.Task) {
+      return _ihoi7vca.Task.fromJson(data) as T;
     }
-    if (t == _isc.getType<_izw8z7ou.Greeting?>()) {
-      return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
+    if (t == _isc.getType<_ihoi7vca.Task?>()) {
+      return (data != null ? _ihoi7vca.Task.fromJson(data) : null) as T;
     }
     return super.deserialize<T>(data, t);
   }
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
-      _izw8z7ou.Greeting => 'Greeting',
+      _ihoi7vca.Task => 'Task',
       _ => null,
     };
   }
@@ -79,8 +79,8 @@ class Protocol extends _isc.SerializationManager {
     }
 
     switch (data) {
-      case _izw8z7ou.Greeting():
-        return 'Greeting';
+      case _ihoi7vca.Task():
+        return 'Task';
     }
     return null;
   }
@@ -91,8 +91,8 @@ class Protocol extends _isc.SerializationManager {
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
     }
-    if (dataClassName == 'Greeting') {
-      return deserialize<_izw8z7ou.Greeting>(data['data']);
+    if (dataClassName == 'Task') {
+      return deserialize<_ihoi7vca.Task>(data['data']);
     }
     return super.deserializeByClassName(data);
   }

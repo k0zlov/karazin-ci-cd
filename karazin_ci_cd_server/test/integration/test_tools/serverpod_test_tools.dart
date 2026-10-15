@@ -11,10 +11,7 @@
 // ignore_for_file: no_leading_underscores_for_local_identifiers
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _ida;
 import 'dart:io' as _idi;
-import 'package:karazin_ci_cd_server/src/generated/greetings/greeting.dart'
-    as _isvo5aq6;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_test/serverpod_test.dart' as _ist;
 import 'package:karazin_ci_cd_server/src/generated/protocol.dart';
@@ -149,9 +146,7 @@ void withServerpod(
   )(testClosure);
 }
 
-class TestEndpoints {
-  late final _GreetingEndpoint greeting;
-}
+class TestEndpoints {}
 
 class _InternalTestEndpoints extends TestEndpoints
     implements _ist.InternalTestEndpoints {
@@ -159,52 +154,5 @@ class _InternalTestEndpoints extends TestEndpoints
   void initialize(
     _is.SerializationManager serializationManager,
     _is.EndpointDispatch endpoints,
-  ) {
-    greeting = _GreetingEndpoint(
-      endpoints,
-      serializationManager,
-    );
-  }
-}
-
-class _GreetingEndpoint {
-  _GreetingEndpoint(
-    this._endpointDispatch,
-    this._serializationManager,
-  );
-
-  final _is.EndpointDispatch _endpointDispatch;
-
-  final _is.SerializationManager _serializationManager;
-
-  _ida.Future<_isvo5aq6.Greeting> hello(
-    _ist.TestSessionBuilder sessionBuilder,
-    String name,
-  ) async {
-    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
-      var _localUniqueSession =
-          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
-            endpoint: 'greeting',
-            method: 'hello',
-          );
-      try {
-        var _localCallContext = await _endpointDispatch.getMethodCallContext(
-          createSessionCallback: (_) => _localUniqueSession,
-          endpointPath: 'greeting',
-          methodName: 'hello',
-          parameters: _ist.testObjectToJson({'name': name}),
-          serializationManager: _serializationManager,
-        );
-        var _localReturnValue =
-            await (_localCallContext.method.call(
-                  _localUniqueSession,
-                  _localCallContext.arguments,
-                )
-                as _ida.Future<_isvo5aq6.Greeting>);
-        return _localReturnValue;
-      } finally {
-        await _localUniqueSession.close();
-      }
-    });
-  }
+  ) {}
 }
