@@ -1,0 +1,79 @@
+# Create a Docker Registry service connection named docker-hub in Azure DevOps.
+# Set the pipeline variable dockerHubRepository to <namespace>/karazin-ci-cd.
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: BuildAndTest
+    displayName: Build project and run unit tests
+    jobs:
+      - job: Dart
+        displayName: Dart build and tests
+        container: dart:3.12.2
+        steps:
+          - checkout: self
+
+          - script: dart pub get
+            displayName: Restore workspace dependencies
+            workingDirectory: $(Build.SourcesDirectory)
+
+          - script: dart build cli --target bin/main.dart --output build
+            displayName: Build application
+            workingDirectory: $(Build.SourcesDirectory)/karazin_ci_cd_server
+
+          - script: dart test --reporter expanded
+            displayName: Run unit tests
+            workingDirectory: $(Build.SourcesDirectory)/karazin_ci_cd_server
+
+  - stage: PublishImage
+    displayName: Build, tag, and publish Docker image
+    dependsOn: BuildAndTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: DockerHub
+        displayName: Publish latest to Docker Hub
+        steps:
+          - checkout: self
+
+          - bash: |
+              set -euo pipefail
+              if [[ ! "$DOCKER_HUB_REPOSITORY" =~ ^[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*$ ]]; then
+                echo 'Set the pipeline variable dockerHubRepository to <namespace>/karazin-ci-cd.' >&2
+                exit 1
+              fi
+            displayName: Check Docker Hub repository setting
+            env:
+              DOCKER_HUB_REPOSITORY: $(dockerHubRepository)
+
+          - task: Docker@2
+            displayName: Build Docker image
+            inputs:
+              command: build
+              repository: karazin-ci-cd-ci
+              Dockerfile: $(Build.SourcesDirectory)/karazin_ci_cd_server/Dockerfile
+              buildContext: $(Build.SourcesDirectory)
+              tags: $(Build.BuildId)
+
+          - bash: |
+              set -euo pipefail
+              docker tag "karazin-ci-cd-ci:$BUILD_ID" "$DOCKER_HUB_REPOSITORY:latest"
+            displayName: Tag image as latest
+            env:
+              BUILD_ID: $(Build.BuildId)
+              DOCKER_HUB_REPOSITORY: $(dockerHubRepository)
+
+          - task: Docker@2
+            displayName: Push latest to Docker Hub
+            inputs:
+              command: push
+              containerRegistry: docker-hub
+              repository: $(dockerHubRepository)
+              tags: latest

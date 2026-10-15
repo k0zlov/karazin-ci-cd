@@ -135,3 +135,14 @@ the [Serverpod hosting documentation](https://docs.serverpod.dev/deployments/cus
 
 Validation: `docker compose config --quiet` and `docker compose build` passed.
 Container startup and HTTP requests have not yet been tested with this Compose setup.
+
+## Azure DevOps CI/CD — assignments №4 and №5
+
+The root `azure-pipelines.yml` builds the Dart application, runs unit tests, then
+builds, tags, and pushes the application image to Docker Hub as `latest` after a
+push to `main`. Publishing requires a successful build and test run.
+
+Follow the [Azure DevOps setup guide](docs/AZURE_DEVOPS.md) to create the Docker
+Hub repository, Azure DevOps project, `docker-hub` service connection, and GitHub
+pipeline. Set the pipeline variable `dockerHubRepository` to your
+`<namespace>/karazin-ci-cd`. Store the Docker Hub token in the service connection.
