@@ -6,18 +6,18 @@ import 'package:serverpod/serverpod.dart';
 
 class TasksRoute extends Route {
   TasksRoute()
-      : super(
-    methods: {
-      Method.get,
-      Method.post,
-    },
-  );
+    : super(
+        methods: {
+          Method.get,
+          Method.post,
+        },
+      );
 
   @override
   Future<Result> handleCall(
-      Session session,
-      Request request,
-      ) async {
+    Session session,
+    Request request,
+  ) async {
     switch (request.method) {
       case Method.get:
         return _getAll(session);
@@ -42,9 +42,9 @@ class TasksRoute extends Route {
   }
 
   Future<Result> _create(
-      Session session,
-      Request request,
-      ) async {
+    Session session,
+    Request request,
+  ) async {
     final body = await request.readAsString();
 
     final json = jsonDecode(body) as Map<String, dynamic>;

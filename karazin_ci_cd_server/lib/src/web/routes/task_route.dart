@@ -72,7 +72,9 @@ class TaskRoute extends Route {
 
     final updatedTask = task.copyWith(
       title: json['title'] as String? ?? task.title,
-      description: json.containsKey('description') ? json['description'] as String? : task.description,
+      description: json.containsKey('description')
+          ? json['description'] as String?
+          : task.description,
       completed: json['completed'] as bool? ?? task.completed,
     );
 
