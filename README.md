@@ -4,10 +4,59 @@ Task CRUD service built with Dart and Serverpod 4.0.4, backed by PostgreSQL.
 The workspace contains the server (`karazin_ci_cd_server`) and generated client
 (`karazin_ci_cd_client`). Run commands from the repository root unless noted.
 
-## Local setup and run
+## Quick start with Docker Compose
+
+Start Docker Desktop (or Docker Engine with Compose). From the repository root,
+enter the **server directory** and start the service:
+
+```sh
+cd karazin_ci_cd_server
+docker compose up --build -d
+```
+
+Compose builds the app, starts PostgreSQL, waits for the database to be ready,
+and applies pending migrations before serving requests. No local Dart or
+Serverpod installation is needed. The first build needs internet access.
+Stop any local server using port 8082 before starting.
+
+Open [Swagger UI](http://localhost:8082/docs) to try the API, or use
+[the task list](http://localhost:8082/api/tasks). Startup may take a moment. Run these commands from the server directory:
+
+```sh
+docker compose logs -f app   # Follow startup logs; Ctrl+C stops following logs
+docker compose ps            # Show container status
+docker compose down          # Stop and remove containers; keep database data
+```
+
+Run `docker compose up --build -d` again to restart or rebuild after code changes.
+PostgreSQL data persists in a named volume. `docker compose down -v` also deletes
+that volume and **all tasks in this Compose database**.
+
+`karazin_ci_cd_server/docker-compose.yaml` runs both the app and PostgreSQL.
+Its build context is the repository root (`..`), so the Dockerfile can read the
+workspace lockfile. Compose uses its own database; it does not import data from
+local development or the earlier manual Docker setup.
+
+This is a local demo: port 8082 is published only on localhost, PostgreSQL stays
+inside the Compose network, and a default demo password is supplied automatically.
+Optionally set `SERVERPOD_DATABASE_PASSWORD` in your shell before the first run;
+keep using the same value for that volume. Changing it later does not change the
+password already stored in PostgreSQL. Production deployment requires its own
+secrets, public hostnames, and TLS configuration.
+
+To build only the image without starting services, from the server directory:
+
+```sh
+docker compose build
+# Equivalent standalone build:
+docker build -f Dockerfile -t karazin-ci-cd ..
+```
+
+## Local setup and run (without containers)
 
 Requirements: Dart 3.12.2 or later within 3.x, and Serverpod CLI 4.0.4.
-Docker is only needed for the container workflow below.
+Docker is only needed for the Compose workflow above. Run the following commands
+from the **repository root**.
 
 ```sh
 dart pub global activate serverpod_cli 4.0.4
@@ -69,71 +118,13 @@ The current suite contains eight pure `TaskValidator` unit tests in
 `test/integration/modules/tasks/task_validator_test.dart`; despite the directory
 name, these tests do not start a server or require a database or Docker.
 
-## Docker build and run
-
-Start Docker Desktop (or Docker Engine). Build from the **repository root**,
-so the Dockerfile can access the workspace `pubspec.lock`:
-
-```sh
-docker build -f karazin_ci_cd_server/Dockerfile -t karazin-ci-cd .
-```
-
-The image defaults to production mode. `config/production.yaml` contains example
-hostnames and database credentials settings, so a bare `docker run` is not a
-complete deployment. The following local demo supplies a separate PostgreSQL
-container and overrides those settings. Stop the local server first to free 8082.
-Run these commands in the same terminal; replace the example password.
-
-```sh
-export SERVERPOD_DATABASE_PASSWORD='replace-with-a-local-demo-password'
-docker network create karazin-ci-cd
-docker run -d --name karazin-ci-cd-db --network karazin-ci-cd \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_DB=karazin_ci_cd \
-  -e POSTGRES_PASSWORD="$SERVERPOD_DATABASE_PASSWORD" \
-  -v karazin-ci-cd-db-data:/var/lib/postgresql/data \
-  ghcr.io/serverpod/postgres:16
-
-docker exec karazin-ci-cd-db pg_isready -U postgres -d karazin_ci_cd
-```
-
-Wait until `pg_isready` reports **accepting connections** (repeat that command
-if necessary), then start the application and apply its bundled migrations:
-
-```sh
-docker run --rm --name karazin-ci-cd-app --network karazin-ci-cd \
-  -p 127.0.0.1:8082:8082 \
-  -e SERVERPOD_DATABASE_HOST=karazin-ci-cd-db \
-  -e SERVERPOD_DATABASE_PORT=5432 \
-  -e SERVERPOD_DATABASE_NAME=karazin_ci_cd \
-  -e SERVERPOD_DATABASE_USER=postgres \
-  -e SERVERPOD_DATABASE_PASSWORD \
-  -e SERVERPOD_DATABASE_REQUIRE_SSL=false \
-  -e SERVERPOD_WEB_SERVER_PUBLIC_HOST=localhost \
-  -e SERVERPOD_WEB_SERVER_PUBLIC_PORT=8082 \
-  -e SERVERPOD_WEB_SERVER_PUBLIC_SCHEME=http \
-  -e SERVERPOD_SESSION_CONSOLE_LOG_ENABLED=true \
-  karazin-ci-cd --apply-migrations
-```
-
-Open `/docs` or run the curl examples above. `--apply-migrations` applies pending
-migrations before serving requests; startup arguments are forwarded by the
-Dockerfile. The SSL override is for this local database demo. Real deployments
-need their own database, secrets, public hostnames, and TLS configuration.
-Insights additionally needs a configured service secret if you intend to use it.
-
-Press Ctrl+C to stop the app, or run `docker stop karazin-ci-cd-app` from another
-terminal. Stop the database with `docker stop karazin-ci-cd-db`; restart it later
-with `docker start karazin-ci-cd-db` and rerun the app command. The named volume
-preserves database data. Create the network and database container only once.
-
-### Assignment №2: Dockerfile requirements
+## Assignment №2: Dockerfile requirements
 
 | Requirement | Implementation in `karazin_ci_cd_server/Dockerfile` |
 | --- | --- |
 | Builds the application | `dart pub get`, then `dart build cli --target bin/main.dart --output build` |
 | Produces a runnable image | Multi-stage build copies the compiled bundle, runtime, configuration, web resources, migrations, and protocol metadata into the final image |
-| Exposes the web-service port | `EXPOSE 8082` (also 8080 and 8081); `-p 127.0.0.1:8082:8082` publishes the REST port locally |
+| Exposes the web-service port | `EXPOSE 8082` (also 8080 and 8081); Compose publishes `127.0.0.1:8082:8082` for local REST access |
 | Starts the application on container start | `ENTRYPOINT` executes `./bin/server`, with run mode and other settings from environment variables |
 
 The Dockerfile meets all four structural requirements. `EXPOSE` alone does not
@@ -142,6 +133,5 @@ database. The root `.dockerignore` excludes local secrets, build caches, and
 embedded database files; provide secrets at runtime. Build instructions follow
 the [Serverpod hosting documentation](https://docs.serverpod.dev/deployments/custom-hosting/hosting-elsewhere).
 
-Validation: Dockerfile and commands reviewed against repository configuration;
-an actual image build and container startup still need verification with a
-running Docker daemon.
+Validation: `docker compose config --quiet` and `docker compose build` passed.
+Container startup and HTTP requests have not yet been tested with this Compose setup.

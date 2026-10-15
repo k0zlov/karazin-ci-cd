@@ -1,30 +1,44 @@
+# Run from this server directory: docker compose up --build -d
+name: karazin-ci-cd
+
 services:
-  # Development services
   postgres:
     image: ghcr.io/serverpod/postgres:16
-    ports:
-      - "8090:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: karazin_ci_cd
-      POSTGRES_PASSWORD: "I7AI1IX9prUEp80QB9_aAbLS_n99KQh3"
+      POSTGRES_PASSWORD: ${SERVERPOD_DATABASE_PASSWORD:-karazin-local-only}
     volumes:
-      - karazin_ci_cd_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
-
-  # Test services
-  postgres_test:
-    image: ghcr.io/serverpod/postgres:16
+  app:
+    build:
+      context: ..
+      dockerfile: karazin_ci_cd_server/Dockerfile
     ports:
-      - "9090:5432"
+      - "127.0.0.1:8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["--apply-migrations"]
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_DB: karazin_ci_cd_test
-      POSTGRES_PASSWORD: "26SuMseTGP53C6zNHjjlqrJcxxBG0o4X"
-    volumes:
-      - karazin_ci_cd_test_data:/var/lib/postgresql/data
-
+      runmode: production
+      SERVERPOD_DATABASE_HOST: postgres
+      SERVERPOD_DATABASE_PORT: "5432"
+      SERVERPOD_DATABASE_NAME: karazin_ci_cd
+      SERVERPOD_DATABASE_USER: postgres
+      SERVERPOD_DATABASE_PASSWORD: ${SERVERPOD_DATABASE_PASSWORD:-karazin-local-only}
+      SERVERPOD_DATABASE_REQUIRE_SSL: "false"
+      SERVERPOD_WEB_SERVER_PUBLIC_HOST: localhost
+      SERVERPOD_WEB_SERVER_PUBLIC_PORT: "8082"
+      SERVERPOD_WEB_SERVER_PUBLIC_SCHEME: http
+      SERVERPOD_SESSION_CONSOLE_LOG_ENABLED: "true"
 
 volumes:
-  karazin_ci_cd_data:
-  karazin_ci_cd_test_data:
+  postgres_data:
