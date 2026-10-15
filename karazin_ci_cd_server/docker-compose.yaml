@@ -1,0 +1,30 @@
+services:
+  # Development services
+  postgres:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "8090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: karazin_ci_cd
+      POSTGRES_PASSWORD: "I7AI1IX9prUEp80QB9_aAbLS_n99KQh3"
+    volumes:
+      - karazin_ci_cd_data:/var/lib/postgresql/data
+
+
+  # Test services
+  postgres_test:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "9090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: karazin_ci_cd_test
+      POSTGRES_PASSWORD: "26SuMseTGP53C6zNHjjlqrJcxxBG0o4X"
+    volumes:
+      - karazin_ci_cd_test_data:/var/lib/postgresql/data
+
+
+volumes:
+  karazin_ci_cd_data:
+  karazin_ci_cd_test_data:
