@@ -54,5 +54,5 @@ EXPOSE 8080
 EXPOSE 8081
 EXPOSE 8082
 
-# Define the entrypoint command
-ENTRYPOINT ./bin/server --mode=$runmode --server-id=$serverid --logging=$logging --role=$role
+# Forward startup arguments (e.g. --apply-migrations) and deliver signals to the server.
+ENTRYPOINT ["sh", "-c", "exec ./bin/server --mode=\"$runmode\" --server-id=\"$serverid\" --logging=\"$logging\" --role=\"$role\" \"$@\"", "--"]

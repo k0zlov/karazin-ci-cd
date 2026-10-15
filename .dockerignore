@@ -1,0 +1,14 @@
+# Version control, local tooling, and build outputs
+.git
+**/.dart_tool
+**/build
+**/.serverpod
+**/.idea
+**/.DS_Store
+
+# Supply secrets at runtime, never in the build context
+**/.env
+**/.env.*
+**/config/passwords.yaml
+**/config/firebase_service_account_key.json
+**/docker-compose.yaml
