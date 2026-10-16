@@ -1,5 +1,17 @@
 # Serverpod project
 
+## Documentation and account privacy
+
+- Write all documentation in English, including Markdown, setup guides, examples,
+  and documentation added in future changes.
+- Never include the user's actual account names, login IDs, personal namespaces,
+  email addresses, or account-specific URLs in documentation.
+- Use generic placeholders such as `<namespace>` and `<organization>` in examples.
+- Keep deployment account identifiers in CI variables and credentials in secrets;
+  do not hard-code personal account identifiers in committed configuration.
+
+## Serverpod development
+
 This project is a Serverpod server (backend).
 
 The user starts the server with `serverpod start`. There is no need to check if the server is running: make the changes and call the `serverpod` MCP tools as needed. If the server is not running, an informative error message will be received from the MCP server. Then STOP and ask the user to start it. NEVER start the server yourself.

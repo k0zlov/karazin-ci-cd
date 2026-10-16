@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'bugfix/*'
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  build-n-test:
+    runs-on: ubuntu-latest
+    container: dart:3.12.2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Restore workspace dependencies
+        run: dart pub get
+
+      - name: Build application
+        working-directory: karazin_ci_cd_server
+        run: dart build cli --target bin/main.dart --output build
+
+      - name: Run unit tests
+        working-directory: karazin_ci_cd_server
+        run: dart test --reporter expanded
+
+  docker-pack-n-push:
+    needs: build-n-test
+    uses: ./.github/workflows/docker-pack-n-push.yml
+    with:
+      repository: ${{ vars.DOCKERHUB_REPOSITORY }}
+      tag: latest
+    secrets:
+      DOCKERHUB_USERNAME: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME || '' }}
+      DOCKERHUB_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_TOKEN || '' }}

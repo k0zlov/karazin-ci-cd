@@ -2,9 +2,18 @@ name: Format
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/*', 'bugfix/*']
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+permissions:
+  contents: read
 
 jobs:
   format:
@@ -22,4 +31,4 @@ jobs:
 
       - name: Check formatting
         working-directory: karazin_ci_cd_server
-        run: dart format --set-exit-if-changed .
+        run: dart format --output=none --set-exit-if-changed .

@@ -146,3 +146,23 @@ Follow the [Azure DevOps setup guide](docs/AZURE_DEVOPS.md) to create the Docker
 Hub repository, Azure DevOps project, `docker-hub` service connection, and GitHub
 pipeline. Set the pipeline variable `dockerHubRepository` to your
 `<namespace>/karazin-ci-cd`. Store the Docker Hub token in the service connection.
+
+## GitHub Actions CI — build, test, and Docker publication
+
+The `CI` workflow runs on pushes to `main`, `feature/*`, and `bugfix/*`.
+Changes limited to `docs/**` and the root `README.md` are ignored. A push that
+also changes application code still runs CI. Analysis and formatting workflows
+use the same push filters and retain checks for pull requests targeting `main`.
+
+- `build-n-test` builds the server with Dart 3.12.2 and runs unit tests.
+- `docker-pack-n-push` calls a separate reusable workflow after tests pass.
+- On `main`, it publishes `<namespace>/karazin-ci-cd:latest` to Docker Hub.
+- On feature/bugfix branches, it saves the image as a downloadable workflow artifact.
+
+Set the Actions repository variable `DOCKERHUB_REPOSITORY` to
+`<namespace>/karazin-ci-cd`. Add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to the repository's **Settings →
+Secrets and variables → Actions → New repository secret** before the first main
+run. See the [GitHub Actions setup and verification guide](docs/GITHUB_ACTIONS.md).
+The Azure pipeline from the previous lab remains enabled independently; both
+pipelines can publish `latest` on pushes to `main`. These GitHub path filters do
+not affect Azure's trigger.
