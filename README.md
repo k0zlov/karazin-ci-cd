@@ -166,3 +166,4 @@ run. See the [GitHub Actions setup and verification guide](docs/GITHUB_ACTIONS.m
 The Azure pipeline from the previous lab remains enabled independently; both
 pipelines can publish `latest` on pushes to `main`. These GitHub path filters do
 not affect Azure's trigger.
+
