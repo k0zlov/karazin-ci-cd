@@ -43,3 +43,15 @@ jobs:
     secrets:
       DOCKERHUB_USERNAME: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME || '' }}
       DOCKERHUB_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_TOKEN || '' }}
+
+  docker-pack-n-push-migrations:
+    name: Migrations image
+    needs: build-n-test
+    uses: ./.github/workflows/docker-hub-publish-and-archive.yml
+    with:
+      repository: ${{ vars.DOCKERHUB_REPOSITORY && format('{0}-migrations', vars.DOCKERHUB_REPOSITORY) || '' }}
+      context: .
+      dockerfile: karazin_ci_cd_server/Dockerfile.migrations
+    secrets:
+      DOCKERHUB_USERNAME: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME || '' }}
+      DOCKERHUB_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_TOKEN || '' }}

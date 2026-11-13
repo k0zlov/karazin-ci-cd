@@ -1,0 +1,22 @@
+FROM dart:3.12.2 AS build
+
+WORKDIR /app
+COPY pubspec.yaml pubspec.lock ./
+COPY karazin_ci_cd_client/pubspec.yaml karazin_ci_cd_client/
+COPY karazin_ci_cd_server/pubspec.yaml karazin_ci_cd_server/
+RUN dart pub get --enforce-lockfile
+
+COPY karazin_ci_cd_server/ karazin_ci_cd_server/
+WORKDIR /app/karazin_ci_cd_server
+RUN dart build cli --target bin/migrate.dart --output build
+
+FROM alpine:latest
+WORKDIR /app
+COPY --from=build /runtime/ /
+COPY --from=build /app/karazin_ci_cd_server/build/bundle/ ./
+COPY --from=build /app/karazin_ci_cd_server/config/ config/
+COPY --from=build /app/karazin_ci_cd_server/migrations/ migrations/
+COPY --from=build /app/karazin_ci_cd_server/lib/src/generated/protocol.yaml lib/src/generated/protocol.yaml
+
+ENTRYPOINT ["./bin/migrate"]
+CMD ["--mode", "production"]
