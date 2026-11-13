@@ -2,7 +2,7 @@
 
 The root [`azure-pipelines.yml`](../azure-pipelines.yml) defines the pipeline.
 Source code remains in the project's GitHub repository. Local startup uses
-`karazin_ci_cd_server/docker-compose.yaml`. The eight current unit tests exercise
+the root `docker-compose.yaml`. The eight current unit tests exercise
 `TaskValidator` without starting a server or database.
 
 ## 1. Create a Docker Hub repository

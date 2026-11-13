@@ -1,4 +1,4 @@
-name: Docker pack and push
+name: Publish to Docker Hub and archive in GitHub Actions
 
 on:
   workflow_call:
@@ -35,9 +35,11 @@ permissions:
 
 jobs:
   docker-pack-n-push:
+    name: Build and distribute Docker image
     runs-on: ubuntu-latest
     env:
       IMAGE: ${{ inputs.repository }}:${{ inputs.tag }}
+      SHA_IMAGE: ${{ inputs.repository }}:sha-${{ github.sha }}
       IMAGE_REPOSITORY: ${{ inputs.repository }}
       DOCKERFILE: ${{ inputs.dockerfile }}
       BUILD_CONTEXT: ${{ inputs.context }}
@@ -65,7 +67,7 @@ jobs:
           fi
 
       - name: Build and tag Docker image
-        run: docker build --file "$DOCKERFILE" --tag "$IMAGE" "$BUILD_CONTEXT"
+        run: docker build --file "$DOCKERFILE" --tag "$IMAGE" --tag "$SHA_IMAGE" "$BUILD_CONTEXT"
 
       - name: Log in to Docker Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -74,21 +76,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push image to Docker Hub
+      - name: Publish to Docker Hub (${{ inputs.repository }})
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: docker push "$IMAGE"
+        run: |
+          docker push "$SHA_IMAGE"
+          docker push "$IMAGE"
 
-      - name: Export Docker image for non-main branches
-        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+      - name: Create image archive
+        id: archive
         shell: bash
-        run: docker save "$IMAGE" | gzip > "$RUNNER_TEMP/image.tar.gz"
+        run: |
+          archive_name="${IMAGE_REPOSITORY##*/}-docker-image"
+          docker save "$IMAGE" "$SHA_IMAGE" | gzip > "$RUNNER_TEMP/$archive_name.tar.gz"
+          printf 'name=%s\n' "$archive_name" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Docker image artifact
-        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+      - name: Save archive to GitHub Actions Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/image.tar.gz
+          name: ${{ steps.archive.outputs.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/${{ steps.archive.outputs.name }}.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 7

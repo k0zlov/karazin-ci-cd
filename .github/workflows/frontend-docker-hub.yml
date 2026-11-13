@@ -1,0 +1,27 @@
+name: Frontend (Flutter Web) → Docker Hub
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'bugfix/*'
+    paths:
+      - 'karazin_ci_cd_flutter/**'
+      - '.github/workflows/frontend-docker-hub.yml'
+      - '.github/workflows/docker-hub-publish-and-archive.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  docker-pack-n-push:
+    name: Frontend image
+    uses: ./.github/workflows/docker-hub-publish-and-archive.yml
+    with:
+      repository: ${{ vars.DOCKERHUB_REPOSITORY && format('{0}-flutter', vars.DOCKERHUB_REPOSITORY) || '' }}
+      context: karazin_ci_cd_flutter
+      dockerfile: karazin_ci_cd_flutter/Dockerfile
+    secrets:
+      DOCKERHUB_USERNAME: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME || '' }}
+      DOCKERHUB_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.DOCKERHUB_TOKEN || '' }}

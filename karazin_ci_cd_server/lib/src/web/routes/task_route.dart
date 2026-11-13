@@ -10,6 +10,7 @@ class TaskRoute extends Route {
           Method.get,
           Method.put,
           Method.delete,
+          Method.options,
         },
       );
   static const _idParam = IntPathParam(#id);
@@ -31,7 +32,12 @@ class TaskRoute extends Route {
       case Method.delete:
         return _delete(session, id);
 
-      default:
+      case Method.head:
+      case Method.post:
+      case Method.patch:
+      case Method.options:
+      case Method.trace:
+      case Method.connect:
         return Response.forbidden();
     }
   }
@@ -72,9 +78,7 @@ class TaskRoute extends Route {
 
     final updatedTask = task.copyWith(
       title: json['title'] as String? ?? task.title,
-      description: json.containsKey('description')
-          ? json['description'] as String?
-          : task.description,
+      description: json.containsKey('description') ? json['description'] as String? : task.description,
       completed: json['completed'] as bool? ?? task.completed,
     );
 

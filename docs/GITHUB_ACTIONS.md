@@ -2,42 +2,46 @@
 
 ## Repository settings
 
-Open **Settings → Secrets and variables → Actions** in the GitHub repository.
-Add the following repository secrets under **Secrets**:
+Create or verify the `karazin-ci-cd` and `karazin-ci-cd-flutter` repositories
+in the same Docker Hub namespace. Open **Settings → Secrets and variables →
+Actions** in the GitHub repository and add these secrets:
 
 | Secret | Value |
 | --- | --- |
-| `DOCKERHUB_USERNAME` | Docker ID with write access to the target repository |
-| `DOCKERHUB_TOKEN` | Docker Hub Personal Access Token with Read & Write permissions |
+| `DOCKERHUB_USERNAME` | Docker ID with write access to both Docker Hub repositories |
+| `DOCKERHUB_TOKEN` | Docker Hub token with write access to both Docker Hub repositories |
 
 Under **Variables**, add `DOCKERHUB_REPOSITORY` with the full Docker Hub image
 repository name: `<namespace>/karazin-ci-cd`. Do not include a URL scheme or tag.
 Use the actual namespace only in the repository settings, never in documentation
 or committed configuration.
 
-The Azure DevOps `docker-hub` service connection does not share its credentials
-with GitHub Actions. Feature and bugfix builds need the repository variable but
-not the secrets. Enter tokens only in GitHub Secrets.
+The Flutter workflow appends `-flutter` to this variable. Feature and bugfix
+builds use the variable to tag their image archives. Publication uses the Docker
+Hub credentials on main.
 
 ## Workflow structure and assignment requirements
 
 | Requirement | Implementation |
 | --- | --- |
-| `build-n-test` job | `.github/workflows/ci.yml`: restore dependencies, `dart build cli`, then `dart test` |
+| `build-n-test` job | `.github/workflows/backend-docker-hub.yml`: restore dependencies, `dart build cli`, then `dart test` |
 | Branch triggers | Pushes to `main`, `feature/*`, and `bugfix/*` |
 | Documentation exclusions | `paths-ignore` excludes `docs/**` and the root `README.md` |
-| `docker-pack-n-push` job | Calls the reusable workflow after `build-n-test` succeeds |
-| Reusable workflow | `.github/workflows/docker-pack-n-push.yml`, triggered by `workflow_call` |
+| Backend image | **Backend (Serverpod) → Docker Hub** calls the reusable workflow after `build-n-test` succeeds |
+| Frontend image | `.github/workflows/frontend-docker-hub.yml` calls the reusable workflow when Flutter source or its workflow files change |
+| Reusable workflow | `.github/workflows/docker-hub-publish-and-archive.yml`, triggered by `workflow_call` |
 | Inputs | `repository`, `tag`, `context`, and `dockerfile` |
 | Credentials | GitHub Secrets, explicitly passed to the reusable workflow only for main |
-| Publication | Login and push run only for push events on `refs/heads/main` |
-| Other branches | `docker save` produces `image.tar.gz`, uploaded as an artifact retained for seven days |
+| Publication | Pushes to `main` publish `latest` and `sha-<commit-sha>` to Docker Hub |
+| Run artifacts | GitHub Actions Artifacts retains `karazin-ci-cd-docker-image.tar.gz` or `karazin-ci-cd-flutter-docker-image.tar.gz` for seven days |
 
-The `repository` input receives `vars.DOCKERHUB_REPOSITORY`. The default tag is
-`latest`, the build context is `.` (the workspace root), and the Dockerfile is
-`karazin_ci_cd_server/Dockerfile`. The root context includes `pubspec.lock`.
+The backend uses the repository root as its context so
+`karazin_ci_cd_server/Dockerfile` can read the workspace lockfile. The Flutter
+context is `karazin_ci_cd_flutter/`, which contains its Dockerfile and lockfile.
+Set `API_BASE_URL` to the browser-accessible backend URL when starting the
+Flutter container. Compose defaults it to `http://localhost:8082`.
 
-The previous `tests.yml` is replaced by `ci.yml` to avoid duplicate unit tests.
+The backend workflow runs unit tests in the `build-n-test` job.
 Analyze and Format remain enabled with matching push/path filters and checks on
 pull requests targeting main. If branch protection requires the old `Tests / test`
 status, select the new `build-n-test` check after the first workflow run.
@@ -51,24 +55,24 @@ has no additional pull-request trigger to avoid duplicating branch builds.
 
 After configuring the variable and secrets, commit and push the workflow changes.
 
-1. Push a code or workflow change to `main`. Both jobs should pass, and Docker Hub
-   should receive the `latest` tag.
-2. Push a code change to `feature/ci-check` or `bugfix/ci-check`. The run should
-   contain an artifact named `docker-image-<run-id>-<attempt>`. Login and push
+1. Push both workflow changes and the Flutter source to `main`. Check that
+   both images appear in Docker Hub with `latest` and `sha-<commit-sha>`.
+2. Push a Flutter change to `feature/ci-check` or `bugfix/ci-check`. The run should
+   contain an artifact named `karazin-ci-cd-flutter-docker-image-<run-id>-<attempt>`. Login and push
    should be skipped.
-3. Push only changes to `docs/**` and/or the root `README.md`. CI, Analyze, and
-   Format should not run.
+3. Push only changes to `docs/**` and/or the root `README.md`. The image
+   workflows, Analyze, and Format should skip the push.
 
 Download and extract the artifact ZIP from the Actions run. Load the image:
 
 ```sh
-docker load --input image.tar.gz
-docker image inspect '<namespace>/karazin-ci-cd:latest'
+docker load --input karazin-ci-cd-flutter-docker-image.tar.gz
+docker image inspect '<namespace>/karazin-ci-cd-flutter:latest'
 ```
 
-Replace the namespace placeholder locally with the configured repository value.
-The artifact contains a complete Docker image. Running the application still
-requires PostgreSQL and database connection settings.
+Replace the namespace placeholder with your Docker Hub namespace. Docker Hub
+stores images for `docker pull` and deployment. The Actions archive is a
+downloadable copy attached to an individual run.
 
 The Azure pipeline from the previous assignment remains enabled independently.
 It can also publish `latest` on main and does not use the GitHub path filters.

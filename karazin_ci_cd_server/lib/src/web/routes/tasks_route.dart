@@ -10,6 +10,7 @@ class TasksRoute extends Route {
         methods: {
           Method.get,
           Method.post,
+          Method.options,
         },
       );
 
@@ -25,7 +26,13 @@ class TasksRoute extends Route {
       case Method.post:
         return _create(session, request);
 
-      default:
+      case Method.head:
+      case Method.patch:
+      case Method.options:
+      case Method.trace:
+      case Method.connect:
+      case Method.put:
+      case Method.delete:
         return Response.forbidden();
     }
   }

@@ -5,7 +5,7 @@ endpoints, tests, and configuration details.
 
 ## Run with Docker Compose
 
-From this server directory:
+From the repository root:
 
 ```sh
 docker compose up --build -d

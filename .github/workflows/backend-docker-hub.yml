@@ -1,4 +1,4 @@
-name: CI
+name: Backend (Serverpod) → Docker Hub
 
 on:
   push:
@@ -34,8 +34,9 @@ jobs:
         run: dart test --reporter expanded
 
   docker-pack-n-push:
+    name: Backend image
     needs: build-n-test
-    uses: ./.github/workflows/docker-pack-n-push.yml
+    uses: ./.github/workflows/docker-hub-publish-and-archive.yml
     with:
       repository: ${{ vars.DOCKERHUB_REPOSITORY }}
       tag: latest

@@ -6,11 +6,9 @@ The workspace contains the server (`karazin_ci_cd_server`) and generated client
 
 ## Quick start with Docker Compose
 
-Start Docker Desktop (or Docker Engine with Compose). From the repository root,
-enter the **server directory** and start the service:
+Start Docker Desktop (or Docker Engine with Compose), then run from the repository root:
 
 ```sh
-cd karazin_ci_cd_server
 docker compose up --build -d
 ```
 
@@ -19,8 +17,9 @@ and applies pending migrations before serving requests. No local Dart or
 Serverpod installation is needed. The first build needs internet access.
 Stop any local server using port 8082 before starting.
 
-Open [Swagger UI](http://localhost:8082/docs) to try the API, or use
-[the task list](http://localhost:8082/api/tasks). Startup may take a moment. Run these commands from the server directory:
+Open [Flutter Web](http://localhost:8083) to manage tasks or
+[Swagger UI](http://localhost:8082/docs) to try the API. Startup may take a moment.
+Run these commands from the repository root:
 
 ```sh
 docker compose logs -f app   # Follow startup logs; Ctrl+C stops following logs
@@ -32,24 +31,32 @@ Run `docker compose up --build -d` again to restart or rebuild after code change
 PostgreSQL data persists in a named volume. `docker compose down -v` also deletes
 that volume and **all tasks in this Compose database**.
 
-`karazin_ci_cd_server/docker-compose.yaml` runs both the app and PostgreSQL.
-Its build context is the repository root (`..`), so the Dockerfile can read the
+The root `docker-compose.yaml` runs Flutter Web, Serverpod, and PostgreSQL.
+The Serverpod build uses the repository root as its context so it can read the
 workspace lockfile. Compose uses its own database; it does not import data from
 local development or the earlier manual Docker setup.
 
-This is a local demo: port 8082 is published only on localhost, PostgreSQL stays
+Flutter Web reads `API_BASE_URL` from Compose. The default points to Serverpod's
+public web server at `http://localhost:8082`. To point the browser at a different
+API, recreate the web container with a URL accessible from that browser:
+
+```sh
+API_BASE_URL=https://api.example.com docker compose up -d --no-build web
+```
+
+This is a local demo: ports 8082 and 8083 are published only on localhost, PostgreSQL stays
 inside the Compose network, and a default demo password is supplied automatically.
 Optionally set `SERVERPOD_DATABASE_PASSWORD` in your shell before the first run;
 keep using the same value for that volume. Changing it later does not change the
 password already stored in PostgreSQL. Production deployment requires its own
 secrets, public hostnames, and TLS configuration.
 
-To build only the image without starting services, from the server directory:
+To build the images without starting services, run from the repository root:
 
 ```sh
 docker compose build
-# Equivalent standalone build:
-docker build -f Dockerfile -t karazin-ci-cd ..
+# Standalone Serverpod build:
+docker build -f karazin_ci_cd_server/Dockerfile -t karazin-ci-cd .
 ```
 
 ## Local setup and run (without containers)
@@ -149,20 +156,27 @@ pipeline. Set the pipeline variable `dockerHubRepository` to your
 
 ## GitHub Actions CI — build, test, and Docker publication
 
-The `CI` workflow runs on pushes to `main`, `feature/*`, and `bugfix/*`.
+The **Backend (Serverpod) → Docker Hub** workflow
+(`backend-docker-hub.yml`) runs on pushes to `main`,
+`feature/*`, and `bugfix/*`.
 Changes limited to `docs/**` and the root `README.md` are ignored. A push that
 also changes application code still runs CI. Analysis and formatting workflows
 use the same push filters and retain checks for pull requests targeting `main`.
 
 - `build-n-test` builds the server with Dart 3.12.2 and runs unit tests.
-- `docker-pack-n-push` calls a separate reusable workflow after tests pass.
-- On `main`, it publishes `<namespace>/karazin-ci-cd:latest` to Docker Hub.
-- On feature/bugfix branches, it saves the image as a downloadable workflow artifact.
+- After backend tests pass, `docker-hub-publish-and-archive.yml` builds the image,
+  publishes it on `main`, and saves an archive in GitHub Actions.
+- **Frontend (Flutter Web) → Docker Hub** (`frontend-docker-hub.yml`) calls
+  the same reusable workflow with `karazin_ci_cd_flutter/` as the build context.
+- On `main`, Docker Hub receives `latest` and `sha-<commit-sha>` tags for
+  `<namespace>/karazin-ci-cd` and `<namespace>/karazin-ci-cd-flutter`.
+- GitHub Actions Artifacts retains `karazin-ci-cd-docker-image.tar.gz` or
+  `karazin-ci-cd-flutter-docker-image.tar.gz` for seven days after each successful build.
 
 Set the Actions repository variable `DOCKERHUB_REPOSITORY` to
 `<namespace>/karazin-ci-cd`. Add `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to the repository's **Settings →
 Secrets and variables → Actions → New repository secret** before the first main
-run. See the [GitHub Actions setup and verification guide](docs/GITHUB_ACTIONS.md).
-The Azure pipeline from the previous lab remains enabled independently; both
-pipelines can publish `latest` on pushes to `main`. These GitHub path filters do
-not affect Azure's trigger.
+run. The token needs write access to both Docker Hub repositories. See the
+[GitHub Actions setup and verification guide](docs/GITHUB_ACTIONS.md).
+The Azure pipeline from the previous lab can also publish the backend's
+`latest` tag on pushes to `main`.
