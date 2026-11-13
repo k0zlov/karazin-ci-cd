@@ -42,7 +42,7 @@ spec:
               value: {{ include "karazin.frontendApiUrl" . | quote }}
           readinessProbe:
             httpGet:
-              path: /api-base-url.txt
+              path: /runtime-api-url.txt
               port: http
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}

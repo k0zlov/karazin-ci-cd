@@ -47,15 +47,8 @@ valueFrom:
 {{- end -}}
 
 {{- define "karazin.frontendApiUrl" -}}
-{{- if .Values.frontend.apiBaseUrl -}}
+{{- if .Values.ingress.enabled -}}
 {{- .Values.frontend.apiBaseUrl -}}
-{{- else if .Values.ingress.enabled -}}
-{{- $port := int .Values.ingress.publicPort -}}
-{{- $scheme := .Values.ingress.publicScheme -}}
-{{- printf "%s://%s" $scheme (required "Set ingress.host" .Values.ingress.host) -}}
-{{- if not (or (and (eq $scheme "http") (eq $port 80)) (and (eq $scheme "https") (eq $port 443))) -}}
-{{- printf ":%d" $port -}}
-{{- end -}}
 {{- else -}}
 {{- required "Set frontend.apiBaseUrl when ingress is disabled" .Values.frontend.apiBaseUrl -}}
 {{- end -}}

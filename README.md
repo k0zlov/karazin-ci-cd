@@ -191,7 +191,7 @@ and application version `1.0.0`. The Docker image tags are set separately in
 
 | Component | Kubernetes resources |
 | --- | --- |
-| Flutter Web | Deployment and Service, with the public API origin injected at startup |
+| Flutter Web | Deployment and Service, with an optional API URL override at startup |
 | Serverpod REST API | Deployment and Service on port 8082 by default |
 | PostgreSQL | StatefulSet, headless Service, and a PVC allocated by the cluster's default StorageClass |
 | Database migrations | A separate Job that waits for an authenticated database connection and applies migrations in maintenance mode |
@@ -202,10 +202,10 @@ Each upgrade gets a new Job. Keep a completed Job while that revision is deploye
 so replacement API pods can start. Use backward-compatible database migrations
 during rolling upgrades. A Helm rollback does not roll back the database schema.
 
-Flutter reads the browser-visible origin from `/api-base-url.txt`. The default
-Ingress origin is `http://localhost:18080`, so the browser calls both the app and
-API from the same origin. The Serverpod REST routes already handle CORS for
-clients using a separate origin.
+Flutter uses the origin of the open page for `/api` requests, including the
+scheme and any port visible to the browser. To use a separate API origin, set
+`frontend.apiBaseUrl` to its public URL. The container serves this override from
+`/runtime-api-url.txt`, and the Serverpod REST routes handle CORS.
 
 ### Validate and package
 

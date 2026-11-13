@@ -38,8 +38,9 @@ Hub credentials on main.
 The backend uses the repository root as its context so
 `karazin_ci_cd_server/Dockerfile` can read the workspace lockfile. The Flutter
 context is `karazin_ci_cd_flutter/`, which contains its Dockerfile and lockfile.
-Set `API_BASE_URL` to the browser-accessible backend URL when starting the
-Flutter container. Compose defaults it to `http://localhost:8082`.
+The Flutter container uses the origin of the open page by default. Set
+`API_BASE_URL` at container startup to use a separate, browser-accessible
+backend URL. Compose sets it to `http://localhost:8082` by default.
 
 The backend workflow runs unit tests in the `build-n-test` job.
 Analyze and Format remain enabled with matching push/path filters and checks on

@@ -22,5 +22,6 @@ RUN flutter build web --release --no-pub --no-web-resources-cdn
 
 FROM nginx:stable-alpine
 COPY --from=build /app/build/web/ /usr/share/nginx/html/
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chmod=755 docker/write-api-url.sh /docker-entrypoint.d/40-write-api-url.sh
 EXPOSE 80
