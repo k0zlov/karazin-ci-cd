@@ -1,0 +1,48 @@
+{{- $frontend := dict "root" . "component" "frontend" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "karazin.name" $frontend }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.frontend.servicePort }}
+      targetPort: http
+  selector:
+    {{- include "karazin.selector" $frontend | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "karazin.name" $frontend }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "karazin.selector" $frontend | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "karazin.selector" $frontend | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: frontend
+          image: {{ include "karazin.image" (dict "root" . "image" .Values.frontend.image "suffix" "-flutter") | quote }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: API_BASE_URL
+              value: {{ include "karazin.frontendApiUrl" . | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api-base-url.txt
+              port: http
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

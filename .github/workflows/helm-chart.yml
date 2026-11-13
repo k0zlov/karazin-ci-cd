@@ -1,0 +1,52 @@
+name: Helm Chart
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'bugfix/*'
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/helm-chart.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'k8s/**'
+      - '.github/workflows/helm-chart.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY || 'example/karazin-ci-cd' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: azure/setup-helm@v5.0.1
+        with:
+          version: v3.19.0
+
+      - name: Lint and render the chart
+        run: |
+          helm lint ./k8s --strict --set-string "images.repository=$IMAGE_REPOSITORY"
+          helm template karazin ./k8s --namespace karazin-lab4 \
+            --set-string "images.repository=$IMAGE_REPOSITORY" > "$RUNNER_TEMP/karazin-rendered.yaml"
+
+      - name: Package the chart
+        run: helm package ./k8s --destination "$RUNNER_TEMP/helm"
+
+      - name: Upload the packaged chart
+        uses: actions/upload-artifact@v4
+        with:
+          name: karazin-ci-cd-helm-chart
+          path: ${{ runner.temp }}/helm/karazin-ci-cd-*.tgz
+          if-no-files-found: error
+          compression-level: 0

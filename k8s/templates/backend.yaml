@@ -1,0 +1,125 @@
+{{- $backend := dict "root" . "component" "backend" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "karazin.name" $backend }}
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.backend.servicePort }}
+      targetPort: http
+  selector:
+    {{- include "karazin.selector" $backend | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "karazin.name" $backend }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "karazin.selector" $backend | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "karazin.selector" $backend | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "karazin.name" $backend }}
+      automountServiceAccountToken: false
+      volumes:
+        - name: kubernetes-api
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-migrations
+          image: {{ .Values.migrations.waitImage | quote }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              credentials=/var/run/secrets/kubernetes.io/serviceaccount
+              cat > /tmp/kubeconfig <<EOF
+              apiVersion: v1
+              kind: Config
+              clusters:
+                - name: cluster
+                  cluster:
+                    server: https://kubernetes.default.svc
+                    certificate-authority: $credentials/ca.crt
+              users:
+                - name: job-reader
+                  user:
+                    tokenFile: $credentials/token
+              contexts:
+                - name: in-cluster
+                  context:
+                    cluster: cluster
+                    user: job-reader
+                    namespace: $(cat "$credentials/namespace")
+              current-context: in-cluster
+              EOF
+              export KUBECONFIG=/tmp/kubeconfig
+              while true; do
+                status="$(kubectl get job "$MIGRATION_JOB" --request-timeout=5s -o 'jsonpath={.status.conditions[?(@.status=="True")].type}')" || status=""
+                case "$status" in
+                  *Complete*) exit 0 ;;
+                  *Failed*) echo "Migration job $MIGRATION_JOB failed" >&2; exit 1 ;;
+                esac
+                sleep 2
+              done
+          volumeMounts:
+            - name: kubernetes-api
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          env:
+            - name: MIGRATION_JOB
+              value: {{ include "karazin.migrationName" . | quote }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+      containers:
+        - name: backend
+          image: {{ include "karazin.image" (dict "root" . "image" .Values.backend.image "suffix" "") | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.backend.containerPort }}
+          env:
+            {{- include "karazin.databaseEnv" . | nindent 12 }}
+            - name: SERVERPOD_WEB_SERVER_PORT
+              value: {{ .Values.backend.containerPort | quote }}
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_HOST
+              value: {{ .Values.ingress.host | quote }}
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_PORT
+              value: {{ .Values.ingress.publicPort | quote }}
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_SCHEME
+              value: {{ .Values.ingress.publicScheme | quote }}
+            - name: SERVERPOD_SESSION_CONSOLE_LOG_ENABLED
+              value: "true"
+          startupProbe:
+            httpGet:
+              path: /api/tasks
+              port: http
+            periodSeconds: 3
+            failureThreshold: 40
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}

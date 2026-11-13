@@ -180,3 +180,140 @@ run. The token needs write access to both Docker Hub repositories. See the
 [GitHub Actions setup and verification guide](docs/GITHUB_ACTIONS.md).
 The Azure pipeline from the previous lab can also publish the backend's
 `latest` tag on pushes to `main`.
+
+## Lab 4, assignment 3 — Kubernetes and Helm
+
+The application chart is in `k8s/`. `Chart.yaml` sets chart version `0.1.0`
+and application version `1.0.0`. The Docker image tags are set separately in
+`values.yaml`.
+
+### What the chart installs
+
+| Component | Kubernetes resources |
+| --- | --- |
+| Flutter Web | Deployment and Service, with the public API origin injected at startup |
+| Serverpod REST API | Deployment and Service on port 8082 by default |
+| PostgreSQL | StatefulSet, headless Service, and a PVC allocated by the cluster's default StorageClass |
+| Database migrations | A separate Job that waits for an authenticated database connection and applies migrations in maintenance mode |
+| HTTP routing | Ingress sends `/api` to Serverpod and `/` to Flutter, preserving the request path |
+
+The API pods wait for the migration Job for their Helm revision to complete.
+Each upgrade gets a new Job. Keep a completed Job while that revision is deployed
+so replacement API pods can start. Use backward-compatible database migrations
+during rolling upgrades. A Helm rollback does not roll back the database schema.
+
+Flutter reads the browser-visible origin from `/api-base-url.txt`. The default
+Ingress origin is `http://localhost:18080`, so the browser calls both the app and
+API from the same origin. The Serverpod REST routes already handle CORS for
+clients using a separate origin.
+
+### Validate and package
+
+Use Helm 3, kubectl, kind, and a running Docker Desktop. From the repository
+root, set `DOCKERHUB_REPOSITORY` to the same full backend image repository as
+the GitHub Actions variable, replacing the namespace placeholder below.
+
+```sh
+DOCKERHUB_REPOSITORY='<namespace>/karazin-ci-cd'
+
+helm lint ./k8s --strict --set-string "images.repository=$DOCKERHUB_REPOSITORY"
+helm template karazin ./k8s --namespace karazin-lab4 \
+  --set-string "images.repository=$DOCKERHUB_REPOSITORY"
+helm package ./k8s --destination dist
+helm show chart dist/karazin-ci-cd-0.1.0.tgz
+```
+
+The chart uses this repository for the backend and appends `-flutter` and
+`-migrations` for the other two images. The default tag is `latest`. Set
+`backend.image.tag`, `frontend.image.tag`, and `migrations.image.tag` separately
+to pin published tags. Each component also accepts a repository override and
+an image digest. Use `images.pullSecrets` for private repositories.
+
+### Install on a one-node kind cluster
+
+Run this in a dedicated shell. The kubeconfig file isolates these commands from
+your other Kubernetes contexts. Docker Compose and its database can run separately.
+
+```sh
+export KUBECONFIG="$(mktemp -d)/karazin-lab4.kubeconfig"
+kind create cluster --name karazin-lab4 --image kindest/node:v1.34.0 \
+  --kubeconfig "$KUBECONFIG" --wait 2m
+kubectl get nodes
+kubectl get storageclass
+
+helm repo add traefik https://traefik.github.io/charts
+helm repo update traefik
+helm upgrade --install traefik traefik/traefik --version 42.4.0 \
+  --namespace traefik --create-namespace \
+  --set service.spec.type=ClusterIP \
+  --set providers.kubernetesCRD.enabled=false \
+  --set providers.kubernetesIngress.strictPrefixMatching=true \
+  --set ingressClass.isDefaultClass=false --skip-crds --wait --timeout 4m
+
+kubectl create namespace karazin-lab4
+openssl rand -hex 32 | tr -d '\n' | kubectl -n karazin-lab4 create secret generic karazin-db \
+  --from-file=password=/dev/stdin
+```
+
+The Secret is shared by PostgreSQL, the migrator, and the API. Keep the Secret
+while reusing the PVC. Replacing the Secret alone does not change PostgreSQL's
+existing password. Override its name or key with `postgresql.existingSecret` and
+`postgresql.passwordKey`. Set `postgresql.storage.className` if the cluster
+uses a different StorageClass.
+
+For an amd64 node or multi-architecture images, install the package directly.
+
+```sh
+helm install karazin dist/karazin-ci-cd-0.1.0.tgz --namespace karazin-lab4 \
+  --set-string "images.repository=$DOCKERHUB_REPOSITORY" \
+  --wait --wait-for-jobs --timeout 6m
+```
+
+For Apple Silicon with the amd64-only images published by this project's CI,
+enable x86-64 emulation in Docker Desktop. Use the amd64 manifest digest for
+each image so the ARM64 node can fetch the correct image directly from Docker Hub.
+For each repository, copy the digest shown next to the `linux/amd64` platform.
+
+```sh
+docker buildx imagetools inspect "$DOCKERHUB_REPOSITORY:latest"
+docker buildx imagetools inspect "${DOCKERHUB_REPOSITORY}-flutter:latest"
+docker buildx imagetools inspect "${DOCKERHUB_REPOSITORY}-migrations:latest"
+
+helm install karazin dist/karazin-ci-cd-0.1.0.tgz --namespace karazin-lab4 \
+  --set-string "images.repository=$DOCKERHUB_REPOSITORY" \
+  --set-string 'backend.image.digest=sha256:<backend-amd64-digest>' \
+  --set-string 'frontend.image.digest=sha256:<frontend-amd64-digest>' \
+  --set-string 'migrations.image.digest=sha256:<migrations-amd64-digest>' \
+  --wait --wait-for-jobs --timeout 6m
+```
+
+### Verify the release and browser CRUD
+
+```sh
+helm status karazin -n karazin-lab4
+kubectl -n karazin-lab4 get pods,job,pvc,ingress
+kubectl -n karazin-lab4 logs job/karazin-migrate-1 -c migrations
+kubectl -n traefik port-forward --address 127.0.0.1 svc/traefik 18080:80
+```
+
+Keep the port-forward running. Open [Flutter Web](http://localhost:18080).
+Create a task, refresh to verify it was saved, edit it and mark it complete,
+then delete it. [The REST endpoint](http://localhost:18080/api/tasks) lists the
+current tasks through the same Ingress. If using another public address, set
+`ingress.host`, `ingress.publicPort`, and `ingress.publicScheme` together.
+Set `ingress.tlsSecretName` and configure the controller's HTTPS entry point
+when serving HTTPS. If disabling the Ingress, set `frontend.apiBaseUrl` to the
+API origin reachable from the browser.
+
+Use `helm upgrade` with the same namespace and image settings to update a release.
+Use `helm uninstall karazin -n karazin-lab4` to remove the application and
+keep the PostgreSQL PVC. `kind delete cluster --name karazin-lab4` removes the
+entire lab cluster, including its local PostgreSQL volume.
+
+### GitHub Actions artifact
+
+The [Helm Chart workflow](.github/workflows/helm-chart.yml) runs strict linting,
+renders the manifests, packages the chart, and uploads
+`karazin-ci-cd-0.1.0.tgz` as the `karazin-ci-cd-helm-chart` run artifact. Open
+the workflow run in GitHub Actions and download the artifact ZIP. Extract it
+and install the enclosed `.tgz` using the same image settings as above.

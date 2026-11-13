@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "karazin.migrationName" . }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.deadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "karazin.selector" (dict "root" . "component" "migrations") | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      {{- with .Values.images.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-postgres
+          image: {{ .Values.postgresql.image | quote }}
+          imagePullPolicy: {{ .Values.postgresql.imagePullPolicy }}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              export PGPASSWORD="$SERVERPOD_DATABASE_PASSWORD" PGCONNECT_TIMEOUT=3
+              until psql -h "$SERVERPOD_DATABASE_HOST" -p "$SERVERPOD_DATABASE_PORT" -U "$SERVERPOD_DATABASE_USER" -d "$SERVERPOD_DATABASE_NAME" -qAtc 'SELECT 1'; do
+                sleep 2
+              done
+          env:
+            {{- include "karazin.databaseEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+      containers:
+        - name: migrations
+          image: {{ include "karazin.image" (dict "root" . "image" .Values.migrations.image "suffix" "-migrations") | quote }}
+          imagePullPolicy: {{ .Values.migrations.image.pullPolicy }}
+          env:
+            {{- include "karazin.databaseEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
