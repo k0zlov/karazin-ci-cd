@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim AS build
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git unzip xz-utils zip \
