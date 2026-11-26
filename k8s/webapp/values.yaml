@@ -1,0 +1,42 @@
+frontend:
+  replicas: 1
+  apiBaseUrl: ""
+  image:
+    repository: k0zlov/karazin-ci-cd-flutter
+    tag: latest
+    pullPolicy: Always
+  service:
+    port: 80
+
+backend:
+  replicas: 1
+  image:
+    repository: k0zlov/karazin-ci-cd
+    tag: latest
+    pullPolicy: Always
+  service:
+    port: 8082
+
+migration:
+  image:
+    repository: k0zlov/karazin-ci-cd-migrations
+    tag: latest
+    pullPolicy: Always
+
+postgres:
+  image:
+    repository: ghcr.io/serverpod/postgres
+    tag: "16"
+  service:
+    port: 5432
+  storage:
+    size: 1Gi
+  database: karazin_ci_cd
+  user: postgres
+  auth:
+    password: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: webapp.lab.test

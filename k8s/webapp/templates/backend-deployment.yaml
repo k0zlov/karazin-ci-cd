@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ .Release.Name }}-backend
+
+spec:
+  replicas: {{ .Values.backend.replicas }}
+
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-backend
+
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-backend
+
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.backend.service.port }}
+
+          env:
+            - name: runmode
+              value: production
+
+            - name: SERVERPOD_DATABASE_HOST
+              value: "{{ .Release.Name }}-postgres"
+
+            - name: SERVERPOD_DATABASE_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+
+            - name: SERVERPOD_DATABASE_NAME
+              value: {{ .Values.postgres.database | quote }}
+
+            - name: SERVERPOD_DATABASE_USER
+              value: {{ .Values.postgres.user | quote }}
+
+            - name: SERVERPOD_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-postgres
+                  key: password
+
+            - name: SERVERPOD_DATABASE_REQUIRE_SSL
+              value: "false"
+
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_HOST
+              value: {{ .Values.ingress.host | quote }}
+
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_PORT
+              value: "80"
+
+            - name: SERVERPOD_WEB_SERVER_PUBLIC_SCHEME
+              value: http
+
+            - name: SERVERPOD_SESSION_CONSOLE_LOG_ENABLED
+              value: "true"
